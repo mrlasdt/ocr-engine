@@ -5,13 +5,14 @@ import cv2
 import os
 from typing import Generator, Union, List, overload
 import glob
+from pdf2image import convert_from_path
 
 
 class ImageReader:
     """
     accept anything, return numpy array image
     """
-    supported_ext = [".png", ".jpg", ".jpeg"]
+    supported_ext = [".png", ".jpg", ".jpeg", ".pdf"]
 
     @overload
     @staticmethod
@@ -23,7 +24,7 @@ class ImageReader:
 
     @overload
     @staticmethod
-    def read(img: str) -> List[np.ndarray]: ...
+    def read(img: str) -> List[np.ndarray]: ...  # for pdf or directory
 
     @staticmethod
     def read(img):
@@ -31,6 +32,8 @@ class ImageReader:
             return ImageReader.from_list(img)
         elif isinstance(img, str) and os.path.isdir(img):
             return ImageReader.from_dir(img)
+        elif isinstance(img, str) and img.endswith(".pdf"):
+            return ImageReader.from_pdf(img)
         else:
             return ImageReader._read(img)
 
@@ -61,6 +64,14 @@ class ImageReader:
     @staticmethod
     def from_list(img_list: List[Union[str, np.ndarray, Image.Image]]) -> List[np.ndarray]:
         return [ImageReader._read(img_path) for img_path in img_list]
+
+    @staticmethod
+    def from_pdf(pdf_path: str, start_page: int = 0, end_page: int = 0) -> List[np.ndarray]:
+        pdf_file = convert_from_path(pdf_path)
+        if end_page is not None:
+            end_page = min(len(pdf_file), end_page + 1)
+        limgs = [np.array(pdf_page) for pdf_page in pdf_file[start_page:end_page]]
+        return limgs
 
     @staticmethod
     def _read(img: Union[str, np.ndarray, Image.Image]) -> np.ndarray:
@@ -146,7 +157,7 @@ def get_dynamic_params_for_bbox_of_label(text, x1, y1, w, h, img_h, img_w, font)
 
 
 def visualize_bbox_and_label(
-        img, bboxes, texts, bbox_color=(60, 180, 200),
+        img, bboxes, texts, bbox_color=(200, 180, 60),
         text_color=(0, 0, 0),
         format="xyxy", is_vnese=False, draw_text=True):
     ori_img_type = type(img)

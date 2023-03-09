@@ -1,0 +1,8 @@
+detector: "yolox-s-general-text-pretrain-20221226"
+recognizer: "satrn-lite-general-pretrain-20230106"
+device: "cuda:0"
+do_extend_bbox: True
+margin_bbox: [0, 0.03, 0.02, 0.05]
+batch_mode: False
+batch_size: 16
+auto_rotate: True

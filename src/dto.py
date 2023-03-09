@@ -1,5 +1,8 @@
 import numpy as np
 from typing import Optional
+import cv2
+from PIL import Image
+from .utils import visualize_bbox_and_label
 
 
 class Box:
@@ -375,8 +378,45 @@ class Paragraph:
 
 class Page:
     def __init__(self, llines: list[Line], image: np.ndarray) -> None:
-        self.llines = llines
-        self.image = image
+        self.__llines = llines
+        self.__image = image
+
+    @property
+    def llines(self):
+        return self.__llines
+
+    @property
+    def image(self):
+        return self.__image
+    
+    @property
+    def PIL_image(self):
+        return Image.fromarray(self.__image)
+    
+    def save_img(self, save_path: str, **kwargs: dict) -> None:
+        bboxes = list()
+        texts = list()
+        for line in self.__llines:
+            for word_group in line.list_word_groups:
+                for word in word_group.list_words:
+                    bboxes.append([int(float(b)) for b in word.bbox[:]])
+                    texts.append(word.text)
+        img = visualize_bbox_and_label(self.__image, bboxes, texts, **kwargs)
+        cv2.imwrite(save_path, img)
+
+    def write_to_file(self, mode: str, save_path: str) -> None:
+        f = open(save_path, "w+", encoding="utf-8")
+        for line in self.__llines:
+            if mode == 'line':
+                xmin, ymin, xmax, ymax = line.bbox[:]
+                f.write("{}\t{}\t{}\t{}\t{}\n".format(xmin, ymin, xmax, ymax, line.text))
+            elif mode == "word":
+                for word_group in line.list_word_groups:
+                    for word in word_group.list_words:
+                        # xmin, ymin, xmax, ymax = word.bbox[:]
+                        xmin, ymin, xmax, ymax = [int(float(b)) for b in word.bbox[:]]
+                        f.write("{}\t{}\t{}\t{}\t{}\n".format(xmin, ymin, xmax, ymax, word.text))
+        f.close()
 
 
 class Document:
