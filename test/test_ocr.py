@@ -5,7 +5,7 @@
 
 
 from externals.ocr_sdsv import OcrEngine
-img_path = "/mnt/ssd500/hungbnt/Cello/data/PH/Sea7/Sea_7_1.jpg"
+img_path = "data/PH/Sea7/Sea_7_1.jpg"
 engine = OcrEngine()
 # https://stackoverflow.com/questions/66435480/overload-following-optional-argument
 page = engine(img_path)  # type: ignore

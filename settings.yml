@@ -1,4 +1,5 @@
-detector: "yolox-s-general-text-pretrain-20221226"
+detector: "/home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth"
+rotator_version: "/home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth"
 recognizer: "satrn-lite-general-pretrain-20230106"
 device: "cuda:0"
 do_extend_bbox: True
@@ -6,3 +7,5 @@ margin_bbox: [0, 0.03, 0.02, 0.05]
 batch_mode: False
 batch_size: 16
 auto_rotate: True
+img_size: [1920,1920] #text det default size: 1280x1280
+deskew: False

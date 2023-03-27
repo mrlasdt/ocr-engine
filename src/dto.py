@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 import cv2
 from PIL import Image
 from .utils import visualize_bbox_and_label
@@ -38,6 +38,10 @@ class Box:
     def bbox(self) -> list:
         return [self.x1, self.y1, self.x2, self.y2]
 
+    @bbox.setter
+    def bbox(self, bbox_: list):
+        self.x1, self.y1, self.x2, self.y2 = bbox_
+
     @property
     def xyxyc(self) -> list:
         return [self.x1, self.y1, self.x2, self.y2, self.conf]
@@ -46,7 +50,7 @@ class Box:
     def normalize_bbox(bbox: list):
         return [int(b) for b in bbox]
 
-    def normalize(self):
+    def to_int(self):
         self.x1, self.y1, self.x2, self.y2 = self.normalize_bbox([self.x1, self.y1, self.x2, self.y2])
         return self
 
@@ -60,8 +64,8 @@ class Box:
         return (x1, y1, x2, y2)
 
     def clamp_by_img_wh(self, width: int, height: int):
-        self.x1, self.y1, self.x2, self.y1 = self.clamp_bbox_by_img_wh(
-            [self.x1, self.y1, self.x2, self.y1], width, height)
+        self.x1, self.y1, self.x2, self.y2 = self.clamp_bbox_by_img_wh(
+            [self.x1, self.y1, self.x2, self.y2], width, height)
         return self
 
     @staticmethod
@@ -120,7 +124,15 @@ class Word:
 
     @property
     def bbox(self):
-        return self.boundingbox
+        return self.boundingbox.bbox
+
+    @property
+    def height(self):
+        return self.boundingbox.height
+
+    @property
+    def width(self):
+        return self.boundingbox.width
 
     def __repr__(self) -> str:
         return self.text
@@ -151,14 +163,14 @@ class Word:
 
 
 class Word_group:
-    def __init__(self):
+    def __init__(self, list_words_: List[Word] = list(), text: str = '', boundingbox: list = [-1, -1, -1, -1]):
         self.type = "word_group"
-        self.list_words = []  # dict of word instances
+        self.list_words = list_words_  # dict of word instances
         self.word_group_id = 0  # word group id
         self.line_id = 0  # id of line which instance belongs to
         self.paragraph_id = 0  # id of paragraph which instance belongs to
-        self.text = ""
-        self.boundingbox = [-1, -1, -1, -1]
+        self.text = text
+        self.boundingbox = boundingbox
         self.kie_label = ""
 
     @property
@@ -222,13 +234,13 @@ class Word_group:
 
 
 class Line:
-    def __init__(self):
+    def __init__(self, list_word_groups: List[Word_group] = [], text: str = '', boundingbox: list = [-1, -1, -1, -1]):
         self.type = "line"
-        self.list_word_groups = []  # list of Word_group instances in the line
+        self.list_word_groups = list_word_groups  # list of Word_group instances in the line
         self.line_id = 0  # id of line in the paragraph
         self.paragraph_id = 0  # id of paragraph which instance belongs to
-        self.text = ""
-        self.boundingbox = [-1, -1, -1, -1]
+        self.text = text
+        self.boundingbox = boundingbox
 
     @property
     def bbox(self):
@@ -377,7 +389,7 @@ class Paragraph:
 
 
 class Page:
-    def __init__(self, llines: list[Line], image: np.ndarray) -> None:
+    def __init__(self, llines: List[Line], image: np.ndarray) -> None:
         self.__llines = llines
         self.__image = image
 
@@ -388,11 +400,11 @@ class Page:
     @property
     def image(self):
         return self.__image
-    
+
     @property
     def PIL_image(self):
         return Image.fromarray(self.__image)
-    
+
     def save_img(self, save_path: str, **kwargs: dict) -> None:
         bboxes = list()
         texts = list()
@@ -420,5 +432,5 @@ class Page:
 
 
 class Document:
-    def __init__(self, lpages: list[Page]) -> None:
+    def __init__(self, lpages: List[Page]) -> None:
         self.lpages = lpages

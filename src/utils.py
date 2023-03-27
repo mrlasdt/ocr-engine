@@ -1,11 +1,123 @@
-from PIL import ImageFont, ImageDraw, Image
+from PIL import ImageFont, ImageDraw, Image, ImageOps
 # import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import os
-from typing import Generator, Union, List, overload
+import time
+from typing import Generator, Union, List, overload, Tuple, Callable
 import glob
+import math
 from pdf2image import convert_from_path
+from deskew import determine_skew
+from jdeskew.estimator import get_angle
+from jdeskew.utility import rotate as jrotate
+
+
+class Timer:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self
+
+    def __exit__(self, func: Callable, *args):
+        self.end_time = time.perf_counter()
+        self.elapsed_time = self.end_time - self.start_time
+        # print(f"[INFO]: {self.name} took : {self.elapsed_time:.6f} seconds")
+
+
+def rotate(
+        image: np.ndarray, angle: float, background: Union[int, Tuple[int, int, int]]
+) -> np.ndarray:
+    old_width, old_height = image.shape[:2]
+    angle_radian = math.radians(angle)
+    width = abs(np.sin(angle_radian) * old_height) + abs(np.cos(angle_radian) * old_width)
+    height = abs(np.sin(angle_radian) * old_width) + abs(np.cos(angle_radian) * old_height)
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    rot_mat[1, 2] += (width - old_width) / 2
+    rot_mat[0, 2] += (height - old_height) / 2
+    return cv2.warpAffine(image, rot_mat, (int(round(height)), int(round(width))), borderValue=background)
+
+
+# def rotate_bbox(bbox: list, angle: float) -> list:
+#     # Compute the center point of the bounding box
+#     cx = bbox[0] + bbox[2] / 2
+#     cy = bbox[1] + bbox[3] / 2
+
+#     # Define the scale factor for the rotated bounding box
+#     scale = 1.0  # following the deskew and jdeskew function
+#     angle_radian = math.radians(angle)
+
+#     # Obtain the rotation matrix using cv2.getRotationMatrix2D()
+#     M = cv2.getRotationMatrix2D((cx, cy), angle_radian, scale)
+
+#     # Apply the rotation matrix to the four corners of the bounding box
+#     corners = np.array([[bbox[0], bbox[1]],
+#                         [bbox[0] + bbox[2], bbox[1]],
+#                         [bbox[0] + bbox[2], bbox[1] + bbox[3]],
+#                         [bbox[0], bbox[1] + bbox[3]]], dtype=np.float32)
+#     rotated_corners = cv2.transform(np.array([corners]), M)[0]
+
+#     # Compute the bounding box of the rotated corners
+#     x = int(np.min(rotated_corners[:, 0]))
+#     y = int(np.min(rotated_corners[:, 1]))
+#     w = int(np.max(rotated_corners[:, 0]) - np.min(rotated_corners[:, 0]))
+#     h = int(np.max(rotated_corners[:, 1]) - np.min(rotated_corners[:, 1]))
+#     rotated_bbox = [x, y, w, h]
+
+#     return rotated_bbox
+
+def rotate_bbox(bbox: List[int], angle: float, old_shape: Tuple[int, int]) -> List[int]:
+    # https://medium.com/@pokomaru/image-and-bounding-box-rotation-using-opencv-python-2def6c39453
+    bbox_ = [bbox[0], bbox[1], bbox[2], bbox[1], bbox[2], bbox[3], bbox[0], bbox[3]]
+    h, w = old_shape
+    cx, cy = (int(w / 2), int(h / 2))
+
+    bbox_tuple = [
+        (bbox_[0], bbox_[1]),
+        (bbox_[2], bbox_[3]),
+        (bbox_[4], bbox_[5]),
+        (bbox_[6], bbox_[7]),
+    ]  # put x and y coordinates in tuples, we will iterate through the tuples and perform rotation
+
+    rotated_bbox = []
+
+    for i, coord in enumerate(bbox_tuple):
+        M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
+        cos, sin = abs(M[0, 0]), abs(M[0, 1])
+        newW = int((h * sin) + (w * cos))
+        newH = int((h * cos) + (w * sin))
+        M[0, 2] += (newW / 2) - cx
+        M[1, 2] += (newH / 2) - cy
+        v = [coord[0], coord[1], 1]
+        adjusted_coord = np.dot(M, v)
+        rotated_bbox.insert(i, (adjusted_coord[0], adjusted_coord[1]))
+    result = [int(x) for t in rotated_bbox for x in t]
+    return [result[i] for i in [0, 1, 2, -1]]  # reformat to xyxy
+
+
+def deskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
+    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    angle = 0.
+    try:
+        angle = determine_skew(grayscale)
+    except Exception:
+        pass
+    rotated = rotate(image, angle, (0, 0, 0)) if angle else image
+    return rotated, angle
+
+
+def jdeskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
+    angle = 0.
+    try:
+        angle = get_angle(image)
+    except Exception:
+        pass
+    # TODO: change resize = True and scale the bounding box
+    rotated = jrotate(image, angle, resize=False) if angle else image
+    return rotated, angle
 
 
 class ImageReader:
@@ -38,7 +150,7 @@ class ImageReader:
             return ImageReader._read(img)
 
     @staticmethod
-    def from_dir(dir_path: str) -> List[np.array]:
+    def from_dir(dir_path: str) -> List[np.ndarray]:
         if os.path.isdir(dir_path):
             image_files = list()
             for ext in ImageReader.supported_ext:
@@ -51,14 +163,15 @@ class ImageReader:
     def from_str(img_path: str) -> np.ndarray:
         if not os.path.exists(img_path):
             raise FileNotFoundError(img_path)
-        return np.array(Image.open(img_path))
+        return ImageReader.from_PIL(Image.open(img_path))
 
     @staticmethod
-    def from_numpy(img_array: np.ndarray) -> np.ndarray:
+    def from_np(img_array: np.ndarray) -> np.ndarray:
         return img_array
 
     @staticmethod
     def from_PIL(img_pil: Image.Image) -> np.ndarray:
+        img_pil = ImageOps.exif_transpose(img_pil)
         return np.array(img_pil)
 
     @staticmethod
@@ -80,7 +193,7 @@ class ImageReader:
         elif isinstance(img, Image.Image):
             return ImageReader.from_PIL(img)
         elif isinstance(img, np.ndarray):
-            return ImageReader.from_numpy(img)
+            return ImageReader.from_np(img)
         else:
             raise ValueError("Invalid img argument type: ", type(img))
 
@@ -115,7 +228,7 @@ def chunks(lst: list, n: int) -> Generator:
         yield lst[i:i + n]
 
 
-def read_ocr_result_from_txt(file_path: str) -> tuple[list, list]:
+def read_ocr_result_from_txt(file_path: str) -> Tuple[list, list]:
     '''
     return list of bounding boxes, list of words
     '''
