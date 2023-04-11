@@ -1,0 +1,6 @@
+[submodule "sdsvtr"]
+	path = sdsvtr
+	url = https://github.com/mrlasdt/sdsvtr.git
+[submodule "sdsvtd"]
+	path = sdsvtd
+	url = https://github.com/mrlasdt/sdsvtd.git
