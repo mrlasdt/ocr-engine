@@ -163,7 +163,8 @@ class Word:
 
 
 class Word_group:
-    def __init__(self, list_words_: List[Word] = list(), text: str = '', boundingbox: list = [-1, -1, -1, -1]):
+    def __init__(self, list_words_: List[Word] = list(),
+                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1):
         self.type = "word_group"
         self.list_words = list_words_  # dict of word instances
         self.word_group_id = 0  # word group id
@@ -172,6 +173,7 @@ class Word_group:
         self.text = text
         self.boundingbox = boundingbox
         self.kie_label = ""
+        self.conf_cls = conf_cls
 
     @property
     def bbox(self):
@@ -234,13 +236,15 @@ class Word_group:
 
 
 class Line:
-    def __init__(self, list_word_groups: List[Word_group] = [], text: str = '', boundingbox: list = [-1, -1, -1, -1]):
+    def __init__(self, list_word_groups: List[Word_group] = [],
+                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1):
         self.type = "line"
         self.list_word_groups = list_word_groups  # list of Word_group instances in the line
         self.line_id = 0  # id of line in the paragraph
         self.paragraph_id = 0  # id of paragraph which instance belongs to
         self.text = text
         self.boundingbox = boundingbox
+        self.conf_cls = conf_cls
 
     @property
     def bbox(self):
@@ -392,6 +396,7 @@ class Page:
     def __init__(self, llines: List[Line], image: np.ndarray) -> None:
         self.__llines = llines
         self.__image = image
+        self.__drawed_image = None
 
     @property
     def llines(self):
@@ -405,7 +410,14 @@ class Page:
     def PIL_image(self):
         return Image.fromarray(self.__image)
 
-    def save_img(self, save_path: str, **kwargs: dict) -> None:
+    @property
+    def drawed_image(self):
+        if self.__drawed_image:
+            self.__drawed_image = self
+
+    def visualize_bbox_and_label(self, **kwargs: dict):
+        if self.__drawed_image is not None:
+            return self.__drawed_image
         bboxes = list()
         texts = list()
         for line in self.__llines:
@@ -414,6 +426,11 @@ class Page:
                     bboxes.append([int(float(b)) for b in word.bbox[:]])
                     texts.append(word.text)
         img = visualize_bbox_and_label(self.__image, bboxes, texts, **kwargs)
+        self.__drawed_image = img
+        return self.__drawed_image
+
+    def save_img(self, save_path: str, **kwargs: dict) -> None:
+        img = self.visualize_bbox_and_label(**kwargs)
         cv2.imwrite(save_path, img)
 
     def write_to_file(self, mode: str, save_path: str) -> None:

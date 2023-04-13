@@ -1,7 +1,7 @@
 from builtins import dict
 from .dto import Word, Line, Word_group, Box
 import numpy as np
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 MIN_IOU_HEIGHT = 0.7
 MIN_WIDTH_LINE_RATIO = 0.05
 
@@ -127,7 +127,7 @@ def construct_word_groups_in_each_line(lines):
 
         # left, top ,right, bottom
         line_width = lines[i].boundingbox[2] - lines[i].boundingbox[0]  # right - left
-        line_width = 30  # TODO: to remove
+        line_width = 1  # TODO: to remove
         lines[i] = __sort_line(lines[i])
 
         # update text for lines after sorting
@@ -359,18 +359,15 @@ def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_
     return max_overlap_idx
 
 
-def words_to_lines_tesseract(words: List[Word], gradient: float = 0.6) -> Tuple[List[Line], Optional[int]]:
+def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) -> Tuple[list[list[Word]], float]:
     sorted_words = sorted(words, key=lambda x: x.bbox[0])
     rows = []
     row_words = []
     max_row_size = sorted_words[0].height
     running_y_shift = []
     for _i, word in enumerate(sorted_words):
-        if word.bbox[1] > 300 and word.bbox[3] < 500:
-            # if word.text in ["Tầng", "Tel:"]:
-            print("DEBUGGING")
-        bbox, text = word.bbox[:], word.text
-        x1, y1, x2, y2 = bbox
+        bbox, _text = word.bbox[:], word.text
+        _x1, y1, _x2, y2 = bbox
         top, bottom = y2, y1
         max_row_size = max(max_row_size, top - bottom)
         overlap_row_idx = most_overlapping_row(rows, row_words, top, bottom, running_y_shift, max_row_size)
@@ -391,24 +388,71 @@ def words_to_lines_tesseract(words: List[Word], gradient: float = 0.6) -> Tuple[
 
     # Sort rows and row_texts based on the top y-coordinate
     sorted_rows_data = sorted(zip(rows, row_words), key=lambda x: x[0][0])
-    sorted_rows, sorted_row_words = zip(*sorted_rows_data)
-    # return sorted_row, sorted_row_wofrds
-    lwords_groups = []
-    for row in sorted_row_words:
-        row_text = ' '.join([word.text for word in row])
-        x_min, y_min = float('inf'), float('inf')
-        x_max, y_max = float('-inf'), float('-inf')
-        for word in row:
-            x_max = max(np.max(word.bbox[::2]), x_max)
-            x_min = min(np.min(word.bbox[::2]), x_min)
-            y_max = max(np.max(word.bbox[1::2]), y_max)
-            y_min = min(np.min(word.bbox[1::2]), y_min)
-        row_box = [x_min, y_min, x_max, y_max]
+    _sorted_rows_idx, sorted_row_words = zip(*sorted_rows_data)
+    # /_|<- the perpendicular line of the horizontal line and the skew line of the page
+    page_skew_dist = sum(running_y_shift) / len(running_y_shift)
+    return sorted_row_words, page_skew_dist
 
-        lwords_groups.append(Word_group(list_words_=row, text=row_text, boundingbox=row_box))
 
-    llines = [Line(text=word_group.text, list_word_groups=[word_group], boundingbox=word_group.boundingbox)
-              for word_group in lwords_groups]
+def construct_word_groups_tesseract(sorted_row_words: list[list[Word]],
+                                    max_x_dist: int, page_skew_dist: float) -> list[list[list[Word]]]:
+    corrected_max_x_dist = max_x_dist * np.cos(page_skew_dist)  # approximate page_skew_angle by page_skew_dist
+    constructed_row_word_groups = []
+    for row_words in sorted_row_words:
+        lword_groups = []
+        line_idx = 0
+        lword_groups.append([row_words[0]])
+        for k in range(1, len(row_words)):
+            curr_box = row_words[k].bbox[:]
+            prev_box = row_words[k - 1].bbox[:]
+            dist = curr_box[0] - prev_box[2]
+            if dist > corrected_max_x_dist:
+                line_idx += 1
+                lword_groups.append([])
+            lword_groups[line_idx].append(row_words[k])
+        constructed_row_word_groups.append(lword_groups)
+    return constructed_row_word_groups
+
+
+def group_bbox_and_text(lwords: list[Word]) -> tuple[Box, tuple[str, float]]:
+    text = ' '.join([word.text for word in lwords])
+    x_min, y_min = float('inf'), float('inf')
+    x_max, y_max = float('-inf'), float('-inf')
+    conf_det = 0
+    conf_cls = 0
+    for word in lwords:
+        x_max = max(np.max(word.bbox[::2]), x_max)
+        x_min = min(np.min(word.bbox[::2]), x_min)
+        y_max = max(np.max(word.bbox[1::2]), y_max)
+        y_min = min(np.min(word.bbox[1::2]), y_min)
+        conf_det += word.conf_detect
+        conf_cls += word.conf_cls
+    bbox = Box(x_min, y_min, x_max, y_max, conf=conf_det / len(lwords))
+    return bbox, (text, conf_cls / len(lwords))
+
+
+def words_to_lines_tesseract(words: List[Word],
+                             gradient: float = 0.6, max_x_dist: int = 20) -> Tuple[List[Line],
+                                                                                   Optional[int]]:
+    sorted_row_words, page_skew_dist = stitch_boxes_into_lines_tesseract(words, gradient)
+    constructed_row_word_groups = construct_word_groups_tesseract(sorted_row_words, max_x_dist, page_skew_dist)
+    llines = []
+    for row in constructed_row_word_groups:
+        lwords_row = []
+        lword_groups = []
+        for word_group in row:
+            bbox_word_group, text_word_group = group_bbox_and_text(word_group)
+            lwords_row.extend(word_group)
+            lword_groups.append(
+                Word_group(
+                    list_words_=word_group, text=text_word_group[0],
+                    conf_cls=text_word_group[1],
+                    boundingbox=bbox_word_group))
+        bbox_line, text_line = group_bbox_and_text(lwords_row)
+        llines.append(
+            Line(
+                list_word_groups=lword_groups, text=text_line[0],
+                boundingbox=bbox_line, conf_cls=text_line[1]))
     return llines, None
 
 

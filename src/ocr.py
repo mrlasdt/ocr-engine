@@ -4,23 +4,18 @@ import torch
 import numpy as np
 import yaml
 from pathlib import Path
-DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 import mmcv
 from sdsvtd import StandaloneYOLOXRunner
 from sdsvtr import StandaloneSATRNRunner
-import sdsvtd
-print(sdsvtd.__version__, sdsvtd.__file__)
-# print(sdsvtr.__hub_available_versions__)
-# print(sdsvtd.__hub_available_versions__)
-
 from .utils import ImageReader, chunks, rotate_bbox, Timer
 # from .utils import jdeskew as deskew
 # from externals.deskew.sdsv_dewarp import pdeskew as deskew
 from .utils import deskew
 from .dto import Word, Line, Page, Document, Box
-from .word_formation import words_to_lines as words_to_lines
+# from .word_formation import words_to_lines as words_to_lines
 # from .word_formation import words_to_lines_mmocr as words_to_lines
-# from .word_formation import words_to_lines_tesseract as words_to_lines
+from .word_formation import words_to_lines_tesseract as words_to_lines
+DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 
 
 class OcrEngine:
@@ -148,7 +143,9 @@ class OcrEngine:
                 bbox = Box(*bboxes[i]) if isinstance(bboxes[i], list) else bboxes[i]
                 lwords.append(Word(image=img, text=text, conf_cls=conf_rec, bndbox=bbox, conf_detect=bbox.conf))
         with Timer("words to lines"):
-            return words_to_lines(lwords)[0]
+            return words_to_lines(
+                lwords, self.__settings["words_to_lines_gradient"],
+                self.__settings["lines_to_wordgroups_max_x_dist"])[0]
 
     # https://stackoverflow.com/questions/48127642/incompatible-types-in-assignment-on-union
 
