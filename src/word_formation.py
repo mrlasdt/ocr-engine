@@ -366,9 +366,10 @@ def words_to_lines_tesseract(words: List[Word], gradient: float = 0.6) -> Tuple[
     max_row_size = sorted_words[0].height
     running_y_shift = []
     for _i, word in enumerate(sorted_words):
-        if word.bbox[1] > 300 and word.bbox[3] < 500:
+        # if word.bbox[1] > 300 and word.bbox[3] < 500:
             # if word.text in ["Tầng", "Tel:"]:
-            print("DEBUGGING")
+            # print("DEBUGGING")
+            
         bbox, text = word.bbox[:], word.text
         x1, y1, x2, y2 = bbox
         top, bottom = y2, y1

@@ -18,9 +18,9 @@ from .utils import ImageReader, chunks, rotate_bbox, Timer
 # from externals.deskew.sdsv_dewarp import pdeskew as deskew
 from .utils import deskew
 from .dto import Word, Line, Page, Document, Box
-from .word_formation import words_to_lines as words_to_lines
+# from .word_formation import words_to_lines as words_to_lines
 # from .word_formation import words_to_lines_mmocr as words_to_lines
-# from .word_formation import words_to_lines_tesseract as words_to_lines
+from .word_formation import words_to_lines_tesseract as words_to_lines
 
 
 class OcrEngine:
@@ -50,6 +50,12 @@ class OcrEngine:
         self._recognizer = StandaloneSATRNRunner(
             version=self.__settings["recognizer"],
             return_confident=True, device=self.__settings["device"])
+        
+        print('-' * 50)
+        print(self._recognizer.device)
+        print(next(self._recognizer.model.parameters()).is_cuda)
+        print('-' * 50)
+        
         # extend the bbox to avoid losing accent mark in vietnames, if using ocr for only english, disable it
         self._do_extend_bbox = self.__settings["do_extend_bbox"]
         self._margin_bbox = self.__settings["margin_bbox"]  # left, top, right, bottom"]
