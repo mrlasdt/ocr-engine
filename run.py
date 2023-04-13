@@ -17,10 +17,8 @@ import numpy as np
 from typing import Union, Tuple, List
 current_dir = os.getcwd()
 
-from src.ocr import OcrEngine
-from src.dto import Line
-# print(Line.__file__)
-from src.utils import construct_file_path, ImageReader
+from externals.ocr_sdsv import OcrEngine, Line, ImageReader
+from externals.ocr_sdsv.src.utils import construct_file_path
 
 
 def get_args():
