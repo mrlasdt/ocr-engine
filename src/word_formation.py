@@ -318,7 +318,7 @@ def words_to_lines_mmocr(words: List[Word]) -> Tuple[List[Line], Optional[int]]:
 #             max_overlap = overlap
 #             max_overlap_idx = i
 #     return max_overlap_idx
-def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_overlap_threshold=0.5):
+def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_overlap_threshold=0.3):
     max_overlap = -1
     max_overlap_idx = -1
     overlapping_rows = []
@@ -366,6 +366,8 @@ def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) 
     max_row_size = sorted_words[0].height
     running_y_shift = []
     for _i, word in enumerate(sorted_words):
+        if word.bbox[1] >535 and word.bbox[3] < 590:
+            print("DEBUG")
         bbox, _text = word.bbox[:], word.text
         _x1, y1, _x2, y2 = bbox
         top, bottom = y2, y1
@@ -396,7 +398,7 @@ def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) 
 
 def construct_word_groups_tesseract(sorted_row_words: list[list[Word]],
                                     max_x_dist: int, page_skew_dist: float) -> list[list[list[Word]]]:
-    corrected_max_x_dist = max_x_dist * np.cos(page_skew_dist)  # approximate page_skew_angle by page_skew_dist
+    corrected_max_x_dist = max_x_dist * abs(np.cos(page_skew_dist/180*3.14))  # approximate page_skew_angle by page_skew_dist
     constructed_row_word_groups = []
     for row_words in sorted_row_words:
         lword_groups = []

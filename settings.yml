@@ -9,3 +9,5 @@ batch_size: 16
 auto_rotate: True
 img_size: [1920,1920] #text det default size: 1280x1280
 deskew: False
+words_to_lines_gradient: 0.6
+lines_to_wordgroups_max_x_dist: 20
