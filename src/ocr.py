@@ -13,7 +13,7 @@ from .utils import ImageReader, chunks, rotate_bbox, Timer
 from .utils import deskew
 from .dto import Word, Line, Page, Document, Box
 # from .word_formation import words_to_lines as words_to_lines
-# from .word_formation import words_to_lines_mmocr as words_to_lines
+# from .word_formation import wo    rds_to_lines_mmocr as words_to_lines
 from .word_formation import words_to_lines_tesseract as words_to_lines
 DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 
@@ -47,7 +47,8 @@ class OcrEngine:
             return_confident=True, device=self.__settings["device"])
         # extend the bbox to avoid losing accent mark in vietnames, if using ocr for only english, disable it
         self._do_extend_bbox = self.__settings["do_extend_bbox"]
-        self._margin_bbox = self.__settings["margin_bbox"]  # left, top, right, bottom"]
+        # left, top, right, bottom"]
+        self._margin_bbox = self.__settings["margin_bbox"]
         self._batch_mode = self.__settings["batch_mode"]
         self._batch_size = self.__settings["batch_size"]
         self._deskew = self.__settings["deskew"]
@@ -74,7 +75,8 @@ class OcrEngine:
     #     xyxy = xyxyc[:, :4].tolist()
     #     confs = xyxyc[:, 4].tolist()
     #     return xyxy, confs
-    def preprocess(self, img: np.ndarray) -> np.ndarray:  # -> Tuple[np.ndarray, List[Box]]:
+    # -> Tuple[np.ndarray, List[Box]]:
+    def preprocess(self, img: np.ndarray) -> np.ndarray:
         img_ = img.copy()
         if self.__settings["img_size"]:
             img_ = mmcv.imrescale(
@@ -116,7 +118,8 @@ class OcrEngine:
         mask = list()
         for bbox in bboxes:
             bbox = Box(*bbox) if isinstance(bbox, list) else bbox
-            bbox = bbox.get_extend_bbox(self._margin_bbox) if self._do_extend_bbox else bbox
+            bbox = bbox.get_extend_bbox(
+                self._margin_bbox) if self._do_extend_bbox else bbox
             bbox.clamp_by_img_wh(img.shape[1], img.shape[0])
             bbox.to_int()
             if not bbox.is_valid():
@@ -133,19 +136,21 @@ class OcrEngine:
         with Timer("cropped imgs"):
             lcropped_imgs, mask = self.get_cropped_imgs(img, bboxes)
         with Timer("recog"):
-            pred_recs = self.run_recog(lcropped_imgs)  # batch_mode for efficiency
+            # batch_mode for efficiency
+            pred_recs = self.run_recog(lcropped_imgs)
         with Timer("construct words"):
             lwords = list()
             for i in range(len(pred_recs)):
                 if not mask[i]:
                     continue
                 text, conf_rec = pred_recs[i][0], pred_recs[i][1]
-                bbox = Box(*bboxes[i]) if isinstance(bboxes[i], list) else bboxes[i]
-                lwords.append(Word(image=img, text=text, conf_cls=conf_rec, bndbox=bbox, conf_detect=bbox.conf))
+                bbox = Box(*bboxes[i]) if isinstance(bboxes[i],
+                                                     list) else bboxes[i]
+                lwords.append(Word(
+                    image=img, text=text, conf_cls=conf_rec, bndbox=bbox, conf_detect=bbox.conf))
         with Timer("words to lines"):
             return words_to_lines(
-                lwords, self.__settings["words_to_lines_gradient"],
-                self.__settings["lines_to_wordgroups_max_x_dist"])[0]
+                lwords, **self.__settings["words_to_lines"])[0]
 
     # https://stackoverflow.com/questions/48127642/incompatible-types-in-assignment-on-union
 
@@ -153,7 +158,8 @@ class OcrEngine:
     def __call__(self, img: Union[str, np.ndarray, Image.Image]) -> Page: ...
 
     @overload
-    def __call__(self, img: List[Union[str, np.ndarray, Image.Image]]) -> Document: ...
+    def __call__(
+        self, img: List[Union[str, np.ndarray, Image.Image]]) -> Document: ...
 
     def __call__(self, img):
         """
@@ -166,7 +172,8 @@ class OcrEngine:
                 if len(img) == 1:
                     img = img[0]  # in case input type is a 1 page pdf
                 else:
-                    raise AssertionError("list input can only be used with batch_mode enabled")
+                    raise AssertionError(
+                        "list input can only be used with batch_mode enabled")
             img = self.preprocess(img)
             with Timer("detect"):
                 img, bboxes = self.run_detect(img)
@@ -175,7 +182,8 @@ class OcrEngine:
             return Page(llines, img)
         else:
             lpages = []
-            for imgs in chunks(img, self._batch_size):  # chunks to reduce memory footprint
+            # chunks to reduce memory footprint
+            for imgs in chunks(img, self._batch_size):
                 # pred_dets = self._detector(imgs)
                 # TEMP: use list comprehension because sdsvtd do not support batch mode of text detection
                 img = self.preprocess(img)

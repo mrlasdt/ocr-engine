@@ -86,7 +86,8 @@ def __update_list_word_groups(line, word_group_id, word_id, line_width):
     old_list_word_group = line.list_word_groups
     list_word_groups = []
 
-    inital_word_group = __create_word_group(old_list_word_group[0], word_group_id)
+    inital_word_group = __create_word_group(
+        old_list_word_group[0], word_group_id)
     old_list_word_group[0].word_id = word_id
     list_word_groups.append(inital_word_group)
     word_group_id += 1
@@ -126,7 +127,8 @@ def construct_word_groups_in_each_line(lines):
             continue
 
         # left, top ,right, bottom
-        line_width = lines[i].boundingbox[2] - lines[i].boundingbox[0]  # right - left
+        line_width = lines[i].boundingbox[2] - \
+            lines[i].boundingbox[0]  # right - left
         line_width = 1  # TODO: to remove
         lines[i] = __sort_line(lines[i])
 
@@ -199,7 +201,8 @@ def merge_bboxes_to_group(bboxes_group, x_sorted_boxes):
     merged_bboxes = []
     for box_group in bboxes_group:
         merged_box = {}
-        merged_box['text'] = ' '.join([x_sorted_boxes[idx]['text'] for idx in box_group])
+        merged_box['text'] = ' '.join(
+            [x_sorted_boxes[idx]['text'] for idx in box_group])
         x_min, y_min = float('inf'), float('inf')
         x_max, y_max = float('-inf'), float('-inf')
         for idx in box_group:
@@ -210,12 +213,13 @@ def merge_bboxes_to_group(bboxes_group, x_sorted_boxes):
         merged_box['box'] = [
             x_min, y_min, x_max, y_min, x_max, y_max, x_min, y_max
         ]
-        merged_box['list_words'] = [x_sorted_boxes[idx]['word'] for idx in box_group]
+        merged_box['list_words'] = [x_sorted_boxes[idx]['word']
+                                    for idx in box_group]
         merged_bboxes.append(merged_box)
     return merged_bboxes
 
 
-def stitch_boxes_into_lines(boxes, max_x_dist=10, min_y_overlap_ratio=0.8):
+def stitch_boxes_into_lines(boxes, max_x_dist=10, min_y_overlap_ratio=0.3):
     """Stitch fragmented boxes of words into lines.
 
     Note: part of its logic is inspired by @Johndirr
@@ -291,7 +295,7 @@ def stitch_boxes_into_lines(boxes, max_x_dist=10, min_y_overlap_ratio=0.8):
 # https://huggingface.co/spaces/tomofi/MMOCR/blame/main/mmocr/utils/box_util.py
 
 
-def words_to_lines_mmocr(words: List[Word]) -> Tuple[List[Line], Optional[int]]:
+def words_to_lines_mmocr(words: List[Word], *args) -> Tuple[List[Line], Optional[int]]:
     bboxes = [{"box": [w.bbox[0], w.bbox[1], w.bbox[2], w.bbox[1], w.bbox[2], w.bbox[3], w.bbox[0], w.bbox[3]],
                "text":w.text, "word":w} for w in words]
     merged_lines = stitch_boxes_into_lines(bboxes)
@@ -318,20 +322,22 @@ def words_to_lines_mmocr(words: List[Word]) -> Tuple[List[Line], Optional[int]]:
 #             max_overlap = overlap
 #             max_overlap_idx = i
 #     return max_overlap_idx
-def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_overlap_threshold=0.3):
+def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_overlap_threshold=0.5):
     max_overlap = -1
     max_overlap_idx = -1
     overlapping_rows = []
 
     for i, row in enumerate(rows):
         row_top, row_bottom = row
-        overlap = min(top - y_shift[i], row_top) - max(bottom - y_shift[i], row_bottom)
+        overlap = min(top - y_shift[i], row_top) - \
+            max(bottom - y_shift[i], row_bottom)
 
         if overlap > max_overlap:
             max_overlap = overlap
             max_overlap_idx = i
 
-        if row_bottom <= top and row_top >= bottom:
+        # if at least overlap 1 pixel and not (overlap too much and overlap too little)
+        if (row_bottom <= top and row_top >= bottom) and not (top - bottom - max_overlap > max_row_size * y_overlap_threshold) and not (max_overlap < max_row_size * y_overlap_threshold):
             overlapping_rows.append(i)
 
     # Merge overlapping rows if necessary
@@ -359,20 +365,23 @@ def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_
     return max_overlap_idx
 
 
-def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) -> Tuple[list[list[Word]], float]:
+def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float, y_overlap_threshold: float) -> Tuple[list[list[Word]], float]:
     sorted_words = sorted(words, key=lambda x: x.bbox[0])
     rows = []
     row_words = []
     max_row_size = sorted_words[0].height
     running_y_shift = []
     for _i, word in enumerate(sorted_words):
-        if word.bbox[1] >535 and word.bbox[3] < 590:
+        if word.bbox[1] > 340 and word.bbox[3] < 450:
+            print("DEBUG")
+        if word.text == "Lực":
             print("DEBUG")
         bbox, _text = word.bbox[:], word.text
         _x1, y1, _x2, y2 = bbox
         top, bottom = y2, y1
         max_row_size = max(max_row_size, top - bottom)
-        overlap_row_idx = most_overlapping_row(rows, row_words, top, bottom, running_y_shift, max_row_size)
+        overlap_row_idx = most_overlapping_row(
+            rows, row_words, top, bottom, running_y_shift, max_row_size, y_overlap_threshold)
 
         if overlap_row_idx == -1:  # No overlapping row found
             new_row = (top, bottom)
@@ -385,8 +394,9 @@ def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) 
             new_bottom = min(row_bottom, bottom)
             rows[overlap_row_idx] = (new_top, new_bottom)
             row_words[overlap_row_idx].append(word)
-            new_shift = bottom - row_bottom
-            running_y_shift[overlap_row_idx] = gradient * running_y_shift[overlap_row_idx] + (1 - gradient) * new_shift
+            new_shift = (bottom+top)/2 - (row_bottom+row_top)/2
+            running_y_shift[overlap_row_idx] = gradient * \
+                running_y_shift[overlap_row_idx] + (1 - gradient) * new_shift
 
     # Sort rows and row_texts based on the top y-coordinate
     sorted_rows_data = sorted(zip(rows, row_words), key=lambda x: x[0][0])
@@ -398,7 +408,8 @@ def stitch_boxes_into_lines_tesseract(words: list[Word], gradient: float = 0.6) 
 
 def construct_word_groups_tesseract(sorted_row_words: list[list[Word]],
                                     max_x_dist: int, page_skew_dist: float) -> list[list[list[Word]]]:
-    corrected_max_x_dist = max_x_dist * abs(np.cos(page_skew_dist/180*3.14))  # approximate page_skew_angle by page_skew_dist
+    # approximate page_skew_angle by page_skew_dist
+    corrected_max_x_dist = max_x_dist * abs(np.cos(page_skew_dist/180*3.14))
     constructed_row_word_groups = []
     for row_words in sorted_row_words:
         lword_groups = []
@@ -433,11 +444,12 @@ def group_bbox_and_text(lwords: list[Word]) -> tuple[Box, tuple[str, float]]:
     return bbox, (text, conf_cls / len(lwords))
 
 
-def words_to_lines_tesseract(words: List[Word],
-                             gradient: float = 0.6, max_x_dist: int = 20) -> Tuple[List[Line],
-                                                                                   Optional[int]]:
-    sorted_row_words, page_skew_dist = stitch_boxes_into_lines_tesseract(words, gradient)
-    constructed_row_word_groups = construct_word_groups_tesseract(sorted_row_words, max_x_dist, page_skew_dist)
+def words_to_lines_tesseract(words: List[Word], gradient: float, max_x_dist: int, y_overlap_threshold: float) -> Tuple[List[Line],
+                                                                                                                       Optional[int]]:
+    sorted_row_words, page_skew_dist = stitch_boxes_into_lines_tesseract(
+        words, gradient, y_overlap_threshold)
+    constructed_row_word_groups = construct_word_groups_tesseract(
+        sorted_row_words, max_x_dist, page_skew_dist)
     llines = []
     for row in constructed_row_word_groups:
         lwords_row = []
@@ -477,7 +489,8 @@ def near(word_group1: Word_group, word_group2: Word_group):
 
 def calculate_iou_and_near(wg1: Word_group, wg2: Word_group):
     min_height = min(
-        wg1.boundingbox[3] - wg1.boundingbox[1], wg2.boundingbox[3] - wg2.boundingbox[1]
+        wg1.boundingbox[3] -
+        wg1.boundingbox[1], wg2.boundingbox[3] - wg2.boundingbox[1]
     )
     overlap = min(wg1.boundingbox[3], wg2.boundingbox[3]) - max(
         wg1.boundingbox[1], wg2.boundingbox[1]
