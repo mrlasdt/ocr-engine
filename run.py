@@ -7,6 +7,9 @@ see scripts/run_ocr.sh to run
 # sys.path.append(FILE.parents[2].as_posix())
 
 
+from src.utils import construct_file_path, ImageReader
+from src.dto import Line
+from src.ocr import OcrEngine
 import argparse
 import tqdm
 import pandas as pd
@@ -17,16 +20,14 @@ import numpy as np
 from typing import Union, Tuple, List
 current_dir = os.getcwd()
 
-from src.ocr import OcrEngine
-from src.dto import Line
-from src.utils import construct_file_path, ImageReader
-
 
 def get_args():
     parser = argparse.ArgumentParser()
     # parser image
-    parser.add_argument("--image", type=str, required=True, help="path to input image/directory/csv file")
-    parser.add_argument("--save_dir", type=str, required=True, help="path to save directory")
+    parser.add_argument("--image", type=str, required=True,
+                        help="path to input image/directory/csv file")
+    parser.add_argument("--save_dir", type=str, required=True,
+                        help="path to save directory")
     parser.add_argument(
         "--base_dir", type=str, required=False, default=current_dir,
         help="used when --image and --save_dir are relative paths to a base directory, default to current directory")
@@ -53,11 +54,14 @@ def convert_relative_path_to_positive_path(tgt_dir: Path, base_dir: Path) -> Pat
 
 
 def get_paths_from_opt(opt) -> Tuple[Path, Path]:
-    img_path = opt.image.replace("\\ ", " ").strip()  # BC\ kiem\ tra\ y\ te -> BC kiem tra y te
+    # BC\ kiem\ tra\ y\ te -> BC kiem tra y te
+    img_path = opt.image.replace("\\ ", " ").strip()
     save_dir = opt.save_dir.replace("\\ ", " ").strip()
     base_dir = opt.base_dir.replace("\\ ", " ").strip()
-    input_image = convert_relative_path_to_positive_path(Path(img_path), Path(base_dir))
-    save_dir = convert_relative_path_to_positive_path(Path(save_dir), Path(base_dir))
+    input_image = convert_relative_path_to_positive_path(
+        Path(img_path), Path(base_dir))
+    save_dir = convert_relative_path_to_positive_path(
+        Path(save_dir), Path(base_dir))
     if not save_dir.exists():
         save_dir.mkdir()
         print("[INFO]: Creating folder ", save_dir)
@@ -68,7 +72,8 @@ def process_img(img: Union[str, np.ndarray], save_dir_or_path: str, engine: OcrE
     save_dir_or_path = Path(save_dir_or_path)
     if isinstance(img, np.ndarray):
         if save_dir_or_path.is_dir():
-            raise ValueError("numpy array input require a save path, not a save dir")
+            raise ValueError(
+                "numpy array input require a save path, not a save dir")
     page = engine(img)
     save_path = str(save_dir_or_path.joinpath(Path(img).stem + ".txt")
                     ) if save_dir_or_path.is_dir() else str(save_dir_or_path)
@@ -93,13 +98,15 @@ def process_dir(
             process_dir(img_path, str(save_dir_sub), engine, ddata)
         elif img_path.suffix in ImageReader.supported_ext:
             simg_path = str(img_path)
-            img = ImageReader.read(simg_path) if img_path.suffix != ".pdf" else ImageReader.read(simg_path)[0]
-            save_path = str(Path(save_dir).joinpath(img_path.stem + ".txt"))
-            # try:
-            process_img(img, save_path, engine, export_img)
-            # except Exception as e:
-            #     print('[ERROR]: ', e, ' at ', simg_path)
-            #     return None
+            try:
+                img = ImageReader.read(
+                    simg_path) if img_path.suffix != ".pdf" else ImageReader.read(simg_path)[0]
+                save_path = str(Path(save_dir).joinpath(
+                    img_path.stem + ".txt"))
+                process_img(img, save_path, engine, export_img)
+            except Exception as e:
+                print('[ERROR]: ', e, ' at ', simg_path)
+                return None
             ddata["img_path"].append(simg_path)
             ddata["ocr_path"].append(save_path)
             ddata["label"].append(dir_path.stem)
@@ -120,11 +127,13 @@ if __name__ == "__main__":
     engine = load_engine(opt)
     print("[INFO]: OCR engine settings:", engine.settings)
     img, save_dir = get_paths_from_opt(opt)
+
     lskip_dir = []
     if img.is_dir():
         ddata = process_dir(img, save_dir, engine, opt.export_img)
         if opt.export_csv:
-            pd.DataFrame.from_dict(ddata).to_csv(Path(save_dir).joinpath(opt.export_csv))
+            pd.DataFrame.from_dict(ddata).to_csv(
+                Path(save_dir).joinpath(opt.export_csv))
     elif img.suffix in ImageReader.supported_ext:
         process_img(str(img), save_dir, engine, opt.export_img)
     elif img.suffix == '.csv':

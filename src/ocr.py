@@ -10,7 +10,7 @@ from sdsvtr import StandaloneSATRNRunner
 from .utils import ImageReader, chunks, rotate_bbox, Timer
 # from .utils import jdeskew as deskew
 # from externals.deskew.sdsv_dewarp import pdeskew as deskew
-from .utils import deskew
+from .utils import deskew, post_process_recog
 from .dto import Word, Line, Page, Document, Box
 # from .word_formation import words_to_lines as words_to_lines
 # from .word_formation import wo    rds_to_lines_mmocr as words_to_lines
@@ -104,7 +104,7 @@ class OcrEngine:
         if len(imgs) == 0:
             return list()
         pred_rec = self._recognizer(imgs)
-        return [(word, conf) for word, conf in zip(pred_rec[0], pred_rec[1])]
+        return [(post_process_recog(word), conf) for word, conf in zip(pred_rec[0], pred_rec[1])]
 
     def read_img(self, img: str) -> np.ndarray:
         return ImageReader.read(img)

@@ -13,6 +13,11 @@ from jdeskew.estimator import get_angle
 from jdeskew.utility import rotate as jrotate
 
 
+def post_process_recog(text: str) -> str:
+    text = text.replace("✪", " ")
+    return text
+
+
 class Timer:
     def __init__(self, name: str) -> None:
         self.name = name
