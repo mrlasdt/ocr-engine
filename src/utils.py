@@ -7,6 +7,7 @@ import time
 from typing import Generator, Union, List, overload, Tuple, Callable
 import glob
 import math
+from pathlib import Path
 from pdf2image import convert_from_path
 from deskew import determine_skew
 from jdeskew.estimator import get_angle
@@ -129,7 +130,16 @@ class ImageReader:
     """
     accept anything, return numpy array image
     """
-    supported_ext = [".png", ".jpg", ".jpeg", ".pdf"]
+    supported_ext = [".png", ".jpg", ".jpeg", ".pdf", ".gif"]
+
+    @staticmethod
+    def validate_img_path(img_path: str) -> None:
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(img_path)
+        if os.path.isdir(img_path):
+            raise IsADirectoryError(img_path)
+        if not Path(img_path).suffix.lower() in ImageReader.supported_ext:
+            raise NotImplementedError("Not supported extension at {}".format(img_path))
 
     @overload
     @staticmethod
@@ -157,17 +167,14 @@ class ImageReader:
     @staticmethod
     def from_dir(dir_path: str) -> List[np.ndarray]:
         if os.path.isdir(dir_path):
-            image_files = list()
-            for ext in ImageReader.supported_ext:
-                image_files = glob.glob(os.path.join(dir_path, "*" + ext))
+            image_files = glob.glob(os.path.join(dir_path, "*"))
             return ImageReader.from_list(image_files)
         else:
             raise NotADirectoryError(dir_path)
 
     @staticmethod
     def from_str(img_path: str) -> np.ndarray:
-        if not os.path.exists(img_path):
-            raise FileNotFoundError(img_path)
+        ImageReader.validate_img_path(img_path)
         return ImageReader.from_PIL(Image.open(img_path))
 
     @staticmethod
@@ -175,13 +182,28 @@ class ImageReader:
         return img_array
 
     @staticmethod
-    def from_PIL(img_pil: Image.Image) -> np.ndarray:
-        img_pil = ImageOps.exif_transpose(img_pil)
+    def from_PIL(img_pil: Image.Image, transpose=True) -> np.ndarray:
+        # if img_pil.is_animated:
+        #     raise NotImplementedError("Only static images are supported, animated image found")
+        if transpose:
+            img_pil = ImageOps.exif_transpose(img_pil)
+        if img_pil.mode != "RGB":
+            img_pil = img_pil.convert("RGB")
+
         return np.array(img_pil)
 
     @staticmethod
     def from_list(img_list: List[Union[str, np.ndarray, Image.Image]]) -> List[np.ndarray]:
-        return [ImageReader._read(img_path) for img_path in img_list]
+        limgs = list()
+        for img_path in img_list:
+            try:
+                if isinstance(img_path, str):
+                    ImageReader.validate_img_path(img_path)
+                limgs.append(ImageReader._read(img_path))
+            except (FileNotFoundError, NotImplementedError, IsADirectoryError) as e:
+                print("[ERROR]: ", e)
+                print("[INFO]: Skipping image {}".format(img_path))
+        return limgs
 
     @staticmethod
     def from_pdf(pdf_path: str, start_page: int = 0, end_page: int = 0) -> List[np.ndarray]:

@@ -96,7 +96,7 @@ def process_dir(
         if img_path.is_dir() and img_path not in lskip_dir:
             save_dir_sub = save_dir.joinpath(img_path.stem)
             process_dir(img_path, str(save_dir_sub), engine, ddata)
-        elif img_path.suffix in ImageReader.supported_ext:
+        elif img_path.suffix.lower() in ImageReader.supported_ext:
             simg_path = str(img_path)
             try:
                 img = ImageReader.read(
@@ -106,7 +106,7 @@ def process_dir(
                 process_img(img, save_path, engine, export_img)
             except Exception as e:
                 print('[ERROR]: ', e, ' at ', simg_path)
-                return None
+                continue
             ddata["img_path"].append(simg_path)
             ddata["ocr_path"].append(save_path)
             ddata["label"].append(dir_path.stem)
