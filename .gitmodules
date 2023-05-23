@@ -1,6 +1,6 @@
 [submodule "sdsvtr"]
-	path = sdsvtr
+	path = externals/sdsvtr
 	url = https://github.com/mrlasdt/sdsvtr.git
 [submodule "sdsvtd"]
-	path = sdsvtd
+	path = externals/sdsvtd
 	url = https://github.com/mrlasdt/sdsvtd.git
