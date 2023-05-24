@@ -366,8 +366,8 @@ def most_overlapping_row(rows, row_words, bottom, top, y_shift, max_row_size, y_
 
 
 def stitch_boxes_into_lines_tesseract(words: list[Word],
-                                      gradient: float, y_overlap_threshold: float) -> Tuple[list[list[Word]],
-                                                                                            float]:
+                                      gradient: float, y_overlap_threshold: float, max_running_y_shift: int) -> Tuple[list[list[Word]],
+                                                                                                                      float]:
     sorted_words = sorted(words, key=lambda x: x.bbox[0])
     rows = []
     row_words = []
@@ -399,6 +399,7 @@ def stitch_boxes_into_lines_tesseract(words: list[Word],
             new_shift = (top + bottom) / 2 - (row_bottom + row_top) / 2
             running_y_shift[overlap_row_idx] = gradient * \
                 running_y_shift[overlap_row_idx] + (1 - gradient) * new_shift
+            running_y_shift[overlap_row_idx] = min(running_y_shift[overlap_row_idx], max_running_y_shift)  # clamp
 
     # Sort rows and row_texts based on the top y-coordinate
     sorted_rows_data = sorted(zip(rows, row_words), key=lambda x: x[0][1])
@@ -447,10 +448,10 @@ def group_bbox_and_text(lwords: list[Word]) -> tuple[Box, tuple[str, float]]:
 
 
 def words_to_lines_tesseract(words: List[Word],
-                             gradient: float, max_x_dist: int, y_overlap_threshold: float) -> Tuple[List[Line],
-                                                                                                    Optional[int]]:
+                             gradient: float, max_x_dist: int, max_running_y_shift: int, y_overlap_threshold: float) -> Tuple[List[Line],
+                                                                                                                              Optional[int]]:
     sorted_row_words, page_skew_dist = stitch_boxes_into_lines_tesseract(
-        words, gradient, y_overlap_threshold)
+        words, gradient, y_overlap_threshold, max_running_y_shift)
     constructed_row_word_groups = construct_word_groups_tesseract(
         sorted_row_words, max_x_dist, page_skew_dist)
     llines = []
