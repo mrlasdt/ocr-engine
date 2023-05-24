@@ -7,6 +7,7 @@ from pathlib import Path
 import mmcv
 from sdsvtd import StandaloneYOLOXRunner
 from sdsvtr import StandaloneSATRNRunner
+# from externals.sdsv_dewarp.api import AlignImage
 from .utils import ImageReader, chunks, rotate_bbox, Timer
 # from .utils import jdeskew as deskew
 # from externals.deskew.sdsv_dewarp import pdeskew as deskew
@@ -45,6 +46,7 @@ class OcrEngine:
         self._recognizer = StandaloneSATRNRunner(
             version=self.__settings["recognizer"],
             return_confident=True, device=self.__settings["device"])
+        # self._deskew_aligner =
         # extend the bbox to avoid losing accent mark in vietnames, if using ocr for only english, disable it
         self._do_extend_bbox = self.__settings["do_extend_bbox"]
         # left, top, right, bottom"]

@@ -322,22 +322,22 @@ def words_to_lines_mmocr(words: List[Word], *args) -> Tuple[List[Line], Optional
 #             max_overlap = overlap
 #             max_overlap_idx = i
 #     return max_overlap_idx
-def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_overlap_threshold=0.5):
+def most_overlapping_row(rows, row_words, bottom, top, y_shift, max_row_size, y_overlap_threshold=0.5):
     max_overlap = -1
     max_overlap_idx = -1
     overlapping_rows = []
 
     for i, row in enumerate(rows):
         row_top, row_bottom = row
-        overlap = min(top - y_shift[i], row_top) - \
-            max(bottom - y_shift[i], row_bottom)
+        overlap = min(bottom - y_shift[i], row_top) - \
+            max(top - y_shift[i], row_bottom)
 
         if overlap > max_overlap:
             max_overlap = overlap
             max_overlap_idx = i
 
         # if at least overlap 1 pixel and not (overlap too much and overlap too little)
-        if (row_bottom <= top and row_top >= bottom) and not (top - bottom - max_overlap > max_row_size * y_overlap_threshold) and not (max_overlap < max_row_size * y_overlap_threshold):
+        if (row_bottom <= bottom and row_top >= top) and not (bottom - top - max_overlap > max_row_size * y_overlap_threshold) and not (max_overlap < max_row_size * y_overlap_threshold):
             overlapping_rows.append(i)
 
     # Merge overlapping rows if necessary
@@ -360,7 +360,7 @@ def most_overlapping_row(rows, row_words, top, bottom, y_shift, max_row_size, y_
             row_words[overlapping_rows[0]].extend(merged_words[::-1])
             max_overlap_idx = overlapping_rows[0]
 
-    if top - bottom - max_overlap > max_row_size * y_overlap_threshold and max_overlap < max_row_size * y_overlap_threshold:
+    if bottom - top - max_overlap > max_row_size * y_overlap_threshold and max_overlap < max_row_size * y_overlap_threshold:
         max_overlap_idx = -1
     return max_overlap_idx
 
@@ -380,28 +380,28 @@ def stitch_boxes_into_lines_tesseract(words: list[Word],
         #     print("DEBUG")
         bbox, _text = word.bbox[:], word.text
         _x1, y1, _x2, y2 = bbox
-        top, bottom = y2, y1
-        max_row_size = max(max_row_size, top - bottom)
+        bottom, top = y2, y1
+        max_row_size = max(max_row_size, bottom - top)
         overlap_row_idx = most_overlapping_row(
-            rows, row_words, top, bottom, running_y_shift, max_row_size, y_overlap_threshold)
+            rows, row_words, bottom, top, running_y_shift, max_row_size, y_overlap_threshold)
 
         if overlap_row_idx == -1:  # No overlapping row found
-            new_row = (top, bottom)
+            new_row = (bottom, top)
             rows.append(new_row)
             row_words.append([word])
             running_y_shift.append(0)
         else:  # Overlapping row found
             row_top, row_bottom = rows[overlap_row_idx]
-            new_top = max(row_top, top)
-            new_bottom = min(row_bottom, bottom)
+            new_top = max(row_top, bottom)
+            new_bottom = min(row_bottom, top)
             rows[overlap_row_idx] = (new_top, new_bottom)
             row_words[overlap_row_idx].append(word)
-            new_shift = (bottom + top) / 2 - (row_bottom + row_top) / 2
+            new_shift = (top + bottom) / 2 - (row_bottom + row_top) / 2
             running_y_shift[overlap_row_idx] = gradient * \
                 running_y_shift[overlap_row_idx] + (1 - gradient) * new_shift
 
     # Sort rows and row_texts based on the top y-coordinate
-    sorted_rows_data = sorted(zip(rows, row_words), key=lambda x: x[0][0])
+    sorted_rows_data = sorted(zip(rows, row_words), key=lambda x: x[0][1])
     _sorted_rows_idx, sorted_row_words = zip(*sorted_rows_data)
     # /_|<- the perpendicular line of the horizontal line and the skew line of the page
     page_skew_dist = sum(running_y_shift) / len(running_y_shift)

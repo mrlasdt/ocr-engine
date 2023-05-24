@@ -8,7 +8,7 @@ batch_mode: False
 batch_size: 16
 auto_rotate: True
 img_size: [] #[1920,1920] #text det default size: 1280x1280 #[] = originla size, TODO: fix the deskew code to resize the image only for detecting the angle, we want to feed the original size image to the text detection pipeline so that the bounding boxes would be mapped back to the original size
-deskew: True
+deskew: False #True
 words_to_lines: {
   "gradient": 0.6,
   "max_x_dist": 20,
