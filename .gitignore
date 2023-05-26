@@ -1,6 +1,7 @@
 externals/sdsv_dewarp
 test/
 .vscode/
+src/__pycache__/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 */__pycache__/
