@@ -12,6 +12,6 @@ deskew: False #True
 words_to_lines: {
   "gradient": 0.6,
   "max_x_dist": 20,
-  "max_running_y_shift": 10 #10 degrees
+  "max_running_y_shift_degree": 10, #10 degrees
   "y_overlap_threshold": 0.5,
 }

@@ -19,9 +19,9 @@ plt.imshow(img)
 from src.dto import Word, Box
 lwords = list()
 for i in range(len(texts)):
-    text = texts[i] 
+    text = texts[i]
     bbox = Box(*boxes[i]) if isinstance(boxes[i], list) else boxes[i]
-    lwords.append(Word(image=img, text=text, conf_cls=-1, bndbox=bbox, conf_detect=bbox.conf))
+    lwords.append(Word(image=img, text=text, conf_cls=-1, bbox_obj=bbox, conf_detect=bbox._conf))
 # %%
 
 from src.word_formation import words_to_lines_tesseract

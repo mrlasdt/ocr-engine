@@ -19,6 +19,29 @@ def post_process_recog(text: str) -> str:
     return text
 
 
+def find_maximum_without_outliers(lst: list[int], threshold: float = 1.):
+    '''
+    To find the maximum number in a list while excluding its outlier values, you can follow these steps:
+    Determine the range within which you consider values as outliers. This can be based on a specific threshold or a statistical measure such as the interquartile range (IQR).
+    Iterate through the list and filter out the outlier values based on the defined range. Keep track of the non-outlier values.
+    Find the maximum value among the non-outlier values.
+    '''
+    # Calculate the lower and upper boundaries for outliers
+    q1 = np.percentile(lst, 25)
+    q3 = np.percentile(lst, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+
+    # Filter out outlier values
+    non_outliers = [x for x in lst if lower_bound <= x <= upper_bound]
+
+    # Find the maximum value among non-outliers
+    max_value = max(non_outliers)
+
+    return max_value
+
+
 class Timer:
     def __init__(self, name: str) -> None:
         self.name = name

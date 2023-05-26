@@ -12,10 +12,11 @@ from .utils import ImageReader, chunks, rotate_bbox, Timer
 # from .utils import jdeskew as deskew
 # from externals.deskew.sdsv_dewarp import pdeskew as deskew
 from .utils import deskew, post_process_recog
-from .dto import Word, Line, Page, Document, Box
+from .dto import Word, Line, Page, Document, Box, WordGroup
 # from .word_formation import words_to_lines as words_to_lines
 # from .word_formation import wo    rds_to_lines_mmocr as words_to_lines
 from .word_formation import words_to_lines_tesseract as words_to_lines
+from .word_formation import words_to_word_groups_tesseract as words_to_word_groups
 DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 
 
@@ -88,7 +89,7 @@ class OcrEngine:
             with Timer("deskew"):
                 img_, angle = deskew(img_)
         # for i, bbox in enumerate(bboxes):
-        #     rotated_bbox = rotate_bbox(bbox[:], angle, img.shape[:2])
+        #     rotated_bbox = rotate_bbox(bbox, angle, img.shape[:2])
         #     bboxes[i].bbox = rotated_bbox
         return img_  # , bboxes
 
@@ -132,7 +133,7 @@ class OcrEngine:
             mask.append(True)
         return lcropped_imgs, mask
 
-    def read_page(self, img: np.ndarray, bboxes: List[Union[Box, list]]) -> List[Line]:
+    def read_page(self, img: np.ndarray, bboxes: List[Union[Box, list]]) -> List[WordGroup]:
         if len(bboxes) == 0:  # no bbox found
             return list()
         with Timer("cropped imgs"):
@@ -149,11 +150,13 @@ class OcrEngine:
                 bbox = Box(*bboxes[i]) if isinstance(bboxes[i],
                                                      list) else bboxes[i]
                 lwords.append(Word(
-                    image=img, text=text, conf_cls=conf_rec, bndbox=bbox, conf_detect=bbox.conf))
-        with Timer("words to lines"):
-            return words_to_lines(
-                lwords, **self.__settings["words_to_lines"])[0]
-
+                    image=img, text=text, conf_cls=conf_rec, bbox_obj=bbox, conf_detect=bbox._conf))
+        # with Timer("words to lines"):
+        #     return words_to_lines(
+        #         lwords, img.shape[1], **self.__settings["words_to_lines"])[0]
+        with Timer("words to word groups"):
+            return words_to_word_groups(
+                lwords, img.shape[1], **self.__settings["words_to_lines"])[0]
     # https://stackoverflow.com/questions/48127642/incompatible-types-in-assignment-on-union
 
     @overload
@@ -202,4 +205,4 @@ if __name__ == "__main__":
     engine = OcrEngine(device="cuda:0", return_confidence=True)
     # https://stackoverflow.com/questions/66435480/overload-following-optional-argument
     page = engine(img_path)  # type: ignore
-    print(page.__llines)
+    print(page._lword_groups)
