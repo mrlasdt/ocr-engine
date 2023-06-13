@@ -114,7 +114,7 @@ class Word:
         # self.type = "word"
         self._text = text
         self._image = image
-        self._conf_detect = conf_detect
+        self._conf_det = conf_detect
         self._conf_cls = conf_cls
         # [left, top,right,bot] coordinate of top-left and bottom-right point
         self._bbox_obj = bbox_obj
@@ -131,7 +131,7 @@ class Word:
     @property
     def text(self) -> str:
         return self._text
-    
+
     @property
     def height(self):
         return self._bbox_obj.height
@@ -163,25 +163,30 @@ class Word:
 
 
 class WordGroup:
-    def __init__(self, list_words_: List[Word] = list(),
-                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1):
+    def __init__(self, list_words: List[Word] = list(),
+                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1, conf_det: float = -1):
         # self.type = "word_group"
-        self._list_words = list_words_  # dict of word instances
+        self._list_words = list_words  # dict of word instances
         # self.word_group_id = 0  # word group id
         # self.line_id = 0  # id of line which instance belongs to
         # self.paragraph_id = 0  # id of paragraph which instance belongs to
         self._text = text
-        self.bbox_obj = boundingbox
-        self.kie_label = ""
-        self.conf_cls = conf_cls
+        self._bbox_obj = boundingbox
+        self._kie_label = ""
+        self._conf_cls = conf_cls
+        self._conf_det = conf_det
 
     @property
-    def bbox(self):
-        return self.bbox_obj.bbox
+    def bbox(self) -> list[int]:
+        return self._bbox_obj.bbox
 
     @property
     def text(self) -> str:
         return self._text
+    
+    @property
+    def list_words(self) -> list[Word]:
+        return self._list_words
     
     def __repr__(self) -> str:
         return self._text
@@ -241,23 +246,32 @@ class WordGroup:
 
 class Line:
     def __init__(self, list_word_groups: List[WordGroup] = [],
-                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1):
-        self.type = "line"
-        self.list_word_groups = list_word_groups  # list of Word_group instances in the line
-        self.line_id = 0  # id of line in the paragraph
-        self.paragraph_id = 0  # id of paragraph which instance belongs to
+                 text: str = '', boundingbox: Box = Box(-1, -1, -1, -1), conf_cls: float = -1, conf_det: float = -1):
+        # self.type = "line"
+        self._list_word_groups = list_word_groups  # list of Word_group instances in the line
+        # self.line_id = 0  # id of line in the paragraph
+        # self.paragraph_id = 0  # id of paragraph which instance belongs to
         self._text = text
-        self.bbox_obj = boundingbox
-        self.conf_cls = conf_cls
+        self._bbox_obj = boundingbox
+        self._conf_cls = conf_cls
+        self._conf_det = conf_det
 
     @property
-    def bbox(self):
-        return self.bbox_obj.bbox
+    def bbox(self)->list[int]:
+        return self._bbox_obj.bbox
 
     @property
-    def _text(self) -> str:
+    def text(self) -> str:
         return self._text
-    
+
+    @property
+    def list_word_groups(self) -> List[WordGroup]:
+        return self._list_word_groups
+
+    @property
+    def list_words(self)->list[Word]:
+        return [word for word_group in self._list_word_groups for word in word_group.list_words]
+
     def __repr__(self) -> str:
         return self._text
 
@@ -401,15 +415,19 @@ class Line:
 
 
 class Page:
-    def __init__(self, lword_groups: List[WordGroup], image: np.ndarray) -> None:
-        self._lword_groups = lword_groups
+    def __init__(self, word_segments: Union[List[WordGroup], List[Line]], image: np.ndarray) -> None:
+        self._word_segments = word_segments
         self._image = image
-        self._drawed_image :Optional[np.ndarray]= None
+        self._drawed_image: Optional[np.ndarray] = None
 
     @property
-    def word_groups(self):
-        return self._lword_groups
+    def word_segments(self):
+        return self._word_segments
 
+    @property
+    def list_words(self) -> list[Word]:
+        return [word for word_segment in self._word_segments for word in word_segment.list_words]
+    
     @property
     def image(self):
         return self._image
@@ -421,18 +439,15 @@ class Page:
     @property
     def drawed_image(self):
         return self._drawed_image
-            
 
     def visualize_bbox_and_label(self, **kwargs: dict):
         if self._drawed_image is not None:
             return self._drawed_image
         bboxes = list()
         texts = list()
-        # for line in self.__llines:
-        for word_group in self.word_groups:
-            for word in word_group._list_words:
-                bboxes.append([int(float(b)) for b in word.bbox])
-                texts.append(word._text)
+        for word in self.list_words:
+            bboxes.append([int(float(b)) for b in word.bbox])
+            texts.append(word._text)
         img = visualize_bbox_and_label(self._image, bboxes, texts, **kwargs)
         self._drawed_image = img
         return self._drawed_image
@@ -443,12 +458,12 @@ class Page:
 
     def write_to_file(self, mode: str, save_path: str) -> None:
         f = open(save_path, "w+", encoding="utf-8")
-        for word_group in self._lword_groups:
-            if mode == 'word_group':
-                xmin, ymin, xmax, ymax = word_group.bbox
-                f.write("{}\t{}\t{}\t{}\t{}\n".format(xmin, ymin, xmax, ymax, word_group._text))
+        for word_segment in self._word_segments:
+            if mode == 'segment':
+                xmin, ymin, xmax, ymax = word_segment.bbox
+                f.write("{}\t{}\t{}\t{}\t{}\n".format(xmin, ymin, xmax, ymax, word_segment._text))
             elif mode == "word":
-                for word in word_group._list_words:
+                for word in word_segment.list_words:
                     # xmin, ymin, xmax, ymax = word.bbox
                     xmin, ymin, xmax, ymax = [int(float(b)) for b in word.bbox]
                     f.write("{}\t{}\t{}\t{}\t{}\n".format(xmin, ymin, xmax, ymax, word._text))

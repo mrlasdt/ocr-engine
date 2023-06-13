@@ -1,0 +1,9 @@
+☐ refactor argument parser of run.py
+☐ add timer level, logging level and write_mode to argumments
+☐ add paddleocr deskew to the code
+☐ fix the deskew code to resize the image only for detecting the angle, we want to feed the original size image to the text detection pipeline so that the bounding boxes would be mapped back to the original size
+☐ ocr engine import took too long
+☐ add word level to write_mode
+☐ add word group and line
+change max_x_dist from pixel to percentage of box width
+

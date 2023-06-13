@@ -14,4 +14,5 @@ words_to_lines: {
   "max_x_dist": 20,
   "max_running_y_shift_degree": 10, #10 degrees
   "y_overlap_threshold": 0.5,
+  "word_formation_mode": "line"
 }

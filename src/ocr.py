@@ -15,8 +15,7 @@ from .utils import deskew, post_process_recog
 from .dto import Word, Line, Page, Document, Box, WordGroup
 # from .word_formation import words_to_lines as words_to_lines
 # from .word_formation import wo    rds_to_lines_mmocr as words_to_lines
-from .word_formation import words_to_lines_tesseract as words_to_lines
-from .word_formation import words_to_word_groups_tesseract as words_to_word_groups
+from .word_formation import words_formation_mmocr_tesseract as word_formation
 DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 
 
@@ -133,7 +132,7 @@ class OcrEngine:
             mask.append(True)
         return lcropped_imgs, mask
 
-    def read_page(self, img: np.ndarray, bboxes: List[Union[Box, list]]) -> List[WordGroup]:
+    def read_page(self, img: np.ndarray, bboxes: List[Union[Box, list]]) -> Union[List[WordGroup], List[Line]]:
         if len(bboxes) == 0:  # no bbox found
             return list()
         with Timer("cropped imgs"):
@@ -151,12 +150,8 @@ class OcrEngine:
                                                      list) else bboxes[i]
                 lwords.append(Word(
                     image=img, text=text, conf_cls=conf_rec, bbox_obj=bbox, conf_detect=bbox._conf))
-        # with Timer("words to lines"):
-        #     return words_to_lines(
-        #         lwords, img.shape[1], **self.__settings["words_to_lines"])[0]
-        with Timer("words to word groups"):
-            return words_to_word_groups(
-                lwords, img.shape[1], **self.__settings["words_to_lines"])[0]
+        with Timer("word formation"):
+            return word_formation(lwords, img.shape[1], **self.__settings["words_to_lines"])[0]
     # https://stackoverflow.com/questions/48127642/incompatible-types-in-assignment-on-union
 
     @overload
@@ -183,8 +178,8 @@ class OcrEngine:
             with Timer("detect"):
                 img, bboxes = self.run_detect(img)
             with Timer("read_page"):
-                llines = self.read_page(img, bboxes)
-            return Page(llines, img)
+                lsegments = self.read_page(img, bboxes)
+            return Page(lsegments, img)
         else:
             lpages = []
             # chunks to reduce memory footprint
@@ -205,4 +200,4 @@ if __name__ == "__main__":
     engine = OcrEngine(device="cuda:0", return_confidence=True)
     # https://stackoverflow.com/questions/66435480/overload-following-optional-argument
     page = engine(img_path)  # type: ignore
-    print(page._lword_groups)
+    print(page._word_segments)

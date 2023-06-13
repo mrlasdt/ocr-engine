@@ -1,4 +1,5 @@
 #bash scripts/run_ocr.sh -i /mnt/ssd1T/hungbnt/DocumentClassification/data/OCR040_043 -o /mnt/ssd1T/hungbnt/DocumentClassification/results/ocr/OCR040_043 -e out.csv -k "{\"device\":\"cuda:1\"}" -x True
+#bash scripts/run_ocr.sh -i /mnt/hdd2T/AICR/Datasets/So_ho_khau/ -o /mnt/ssd1T/hungbnt/DocumentClassification/results/ocr/So_ho_khau/ -e out.csv -k "{\"device\":\"cuda:1\"}" -x True
 export PYTHONWARNINGS="ignore"
 
 while getopts i:o:b:e:x:k: flag

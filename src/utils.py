@@ -308,8 +308,8 @@ def get_xyxywh_base_on_format(bbox, format):
     return (x1, y1, x2, y2, w, h)
 
 
-def get_dynamic_params_for_bbox_of_label(text, x1, y1, w, h, img_h, img_w, font):
-    font_scale_factor = img_h / (img_w + img_h)
+def get_dynamic_params_for_bbox_of_label(text, x1, y1, w, h, img_h, img_w, font, font_scale_offset=1):
+    font_scale_factor = img_h / (img_w + img_h) * font_scale_offset
     font_scale = w / (w + h) * font_scale_factor  # adjust font scale by width height
     thickness = int(font_scale_factor) + 1
     (text_width, text_height) = cv2.getTextSize(text, font, fontScale=font_scale, thickness=thickness)[0]
