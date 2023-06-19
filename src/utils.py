@@ -9,9 +9,9 @@ import glob
 import math
 from pathlib import Path
 from pdf2image import convert_from_path
-from deskew import determine_skew
-from jdeskew.estimator import get_angle
-from jdeskew.utility import rotate as jrotate
+# from deskew import determine_skew
+# from jdeskew.estimator import get_angle
+# from jdeskew.utility import rotate as jrotate
 
 
 def post_process_recog(text: str) -> str:
@@ -56,18 +56,18 @@ class Timer:
         print(f"[INFO]: {self.name} took : {self.elapsed_time:.6f} seconds")
 
 
-def rotate(
-        image: np.ndarray, angle: float, background: Union[int, Tuple[int, int, int]]
-) -> np.ndarray:
-    old_width, old_height = image.shape[:2]
-    angle_radian = math.radians(angle)
-    width = abs(np.sin(angle_radian) * old_height) + abs(np.cos(angle_radian) * old_width)
-    height = abs(np.sin(angle_radian) * old_width) + abs(np.cos(angle_radian) * old_height)
-    image_center = tuple(np.array(image.shape[1::-1]) / 2)
-    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-    rot_mat[1, 2] += (width - old_width) / 2
-    rot_mat[0, 2] += (height - old_height) / 2
-    return cv2.warpAffine(image, rot_mat, (int(round(height)), int(round(width))), borderValue=background)
+# def rotate(
+#         image: np.ndarray, angle: float, background: Union[int, Tuple[int, int, int]]
+# ) -> np.ndarray:
+#     old_width, old_height = image.shape[:2]
+#     angle_radian = math.radians(angle)
+#     width = abs(np.sin(angle_radian) * old_height) + abs(np.cos(angle_radian) * old_width)
+#     height = abs(np.sin(angle_radian) * old_width) + abs(np.cos(angle_radian) * old_height)
+#     image_center = tuple(np.array(image.shape[1::-1]) / 2)
+#     rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+#     rot_mat[1, 2] += (width - old_width) / 2
+#     rot_mat[0, 2] += (height - old_height) / 2
+#     return cv2.warpAffine(image, rot_mat, (int(round(height)), int(round(width))), borderValue=background)
 
 
 # def rotate_bbox(bbox: list, angle: float) -> list:
@@ -98,56 +98,56 @@ def rotate(
 
 #     return rotated_bbox
 
-def rotate_bbox(bbox: List[int], angle: float, old_shape: Tuple[int, int]) -> List[int]:
-    # https://medium.com/@pokomaru/image-and-bounding-box-rotation-using-opencv-python-2def6c39453
-    bbox_ = [bbox[0], bbox[1], bbox[2], bbox[1], bbox[2], bbox[3], bbox[0], bbox[3]]
-    h, w = old_shape
-    cx, cy = (int(w / 2), int(h / 2))
+# def rotate_bbox(bbox: List[int], angle: float, old_shape: Tuple[int, int]) -> List[int]:
+#     # https://medium.com/@pokomaru/image-and-bounding-box-rotation-using-opencv-python-2def6c39453
+#     bbox_ = [bbox[0], bbox[1], bbox[2], bbox[1], bbox[2], bbox[3], bbox[0], bbox[3]]
+#     h, w = old_shape
+#     cx, cy = (int(w / 2), int(h / 2))
 
-    bbox_tuple = [
-        (bbox_[0], bbox_[1]),
-        (bbox_[2], bbox_[3]),
-        (bbox_[4], bbox_[5]),
-        (bbox_[6], bbox_[7]),
-    ]  # put x and y coordinates in tuples, we will iterate through the tuples and perform rotation
+#     bbox_tuple = [
+#         (bbox_[0], bbox_[1]),
+#         (bbox_[2], bbox_[3]),
+#         (bbox_[4], bbox_[5]),
+#         (bbox_[6], bbox_[7]),
+#     ]  # put x and y coordinates in tuples, we will iterate through the tuples and perform rotation
 
-    rotated_bbox = []
+#     rotated_bbox = []
 
-    for i, coord in enumerate(bbox_tuple):
-        M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
-        cos, sin = abs(M[0, 0]), abs(M[0, 1])
-        newW = int((h * sin) + (w * cos))
-        newH = int((h * cos) + (w * sin))
-        M[0, 2] += (newW / 2) - cx
-        M[1, 2] += (newH / 2) - cy
-        v = [coord[0], coord[1], 1]
-        adjusted_coord = np.dot(M, v)
-        rotated_bbox.insert(i, (adjusted_coord[0], adjusted_coord[1]))
-    result = [int(x) for t in rotated_bbox for x in t]
-    return [result[i] for i in [0, 1, 2, -1]]  # reformat to xyxy
-
-
-def deskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
-    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    angle = 0.
-    try:
-        angle = determine_skew(grayscale)
-    except Exception:
-        pass
-    rotated = rotate(image, angle, (0, 0, 0)) if angle else image
-    return rotated, angle
+#     for i, coord in enumerate(bbox_tuple):
+#         M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
+#         cos, sin = abs(M[0, 0]), abs(M[0, 1])
+#         newW = int((h * sin) + (w * cos))
+#         newH = int((h * cos) + (w * sin))
+#         M[0, 2] += (newW / 2) - cx
+#         M[1, 2] += (newH / 2) - cy
+#         v = [coord[0], coord[1], 1]
+#         adjusted_coord = np.dot(M, v)
+#         rotated_bbox.insert(i, (adjusted_coord[0], adjusted_coord[1]))
+#     result = [int(x) for t in rotated_bbox for x in t]
+#     return [result[i] for i in [0, 1, 2, -1]]  # reformat to xyxy
 
 
-def jdeskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
-    angle = 0.
-    try:
-        angle = get_angle(image)
-    except Exception:
-        pass
-    # TODO: change resize = True and scale the bounding box
-    rotated = jrotate(image, angle, resize=False) if angle else image
-    return rotated, angle
+# def deskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
+#     grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     angle = 0.
+#     try:
+#         angle = determine_skew(grayscale)
+#     except Exception:
+#         pass
+#     rotated = rotate(image, angle, (0, 0, 0)) if angle else image
+#     return rotated, angle
 
+
+# def jdeskew(image: np.ndarray) -> Tuple[np.ndarray, float]:
+#     angle = 0.
+#     try:
+#         angle = get_angle(image)
+#     except Exception:
+#         pass
+#     # TODO: change resize = True and scale the bounding box
+#     rotated = jrotate(image, angle, resize=False) if angle else image
+#     return rotated, angle
+# def deskew()
 
 class ImageReader:
     """

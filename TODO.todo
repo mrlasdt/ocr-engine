@@ -6,4 +6,5 @@
 ☐ add word level to write_mode
 ☐ add word group and line
 change max_x_dist from pixel to percentage of box width
+☐ visualization: adjust fontsize dynamically
 

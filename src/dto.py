@@ -183,11 +183,11 @@ class WordGroup:
     @property
     def text(self) -> str:
         return self._text
-    
+
     @property
     def list_words(self) -> list[Word]:
         return self._list_words
-    
+
     def __repr__(self) -> str:
         return self._text
 
@@ -257,7 +257,7 @@ class Line:
         self._conf_det = conf_det
 
     @property
-    def bbox(self)->list[int]:
+    def bbox(self) -> list[int]:
         return self._bbox_obj.bbox
 
     @property
@@ -269,7 +269,7 @@ class Line:
         return self._list_word_groups
 
     @property
-    def list_words(self)->list[Word]:
+    def list_words(self) -> list[Word]:
         return [word for word_group in self._list_word_groups for word in word_group.list_words]
 
     def __repr__(self) -> str:
@@ -415,9 +415,13 @@ class Line:
 
 
 class Page:
-    def __init__(self, word_segments: Union[List[WordGroup], List[Line]], image: np.ndarray) -> None:
+    def __init__(
+            self, word_segments: Union[List[WordGroup],
+                                       List[Line]],
+            image: np.ndarray, deskewed_image: Optional[np.ndarray] = None) -> None:
         self._word_segments = word_segments
         self._image = image
+        self._deskewed_image = deskewed_image
         self._drawed_image: Optional[np.ndarray] = None
 
     @property
@@ -427,7 +431,7 @@ class Page:
     @property
     def list_words(self) -> list[Word]:
         return [word for word_segment in self._word_segments for word in word_segment.list_words]
-    
+
     @property
     def image(self):
         return self._image
@@ -448,7 +452,8 @@ class Page:
         for word in self.list_words:
             bboxes.append([int(float(b)) for b in word.bbox])
             texts.append(word._text)
-        img = visualize_bbox_and_label(self._image, bboxes, texts, **kwargs)
+        img = visualize_bbox_and_label(
+            self._deskewed_image if self._deskewed_image is not None else self._image, bboxes, texts, **kwargs)
         self._drawed_image = img
         return self._drawed_image
 

@@ -12,7 +12,7 @@ from src.ocr import OcrEngine
 # img_path = "/mnt/hdd2T/AICR/Projects/2023/FWD/─Р├г c├│ Form ID (╞░u ti├кn cao h╞бn)/OCR040_TH╞п B├БO Chс║еm dс╗йt hiс╗Зu lс╗▒c Hс╗гp ─Сс╗Уng bс║гo hiс╗Гm_POS-19.pdf"
 # img_path = "/mnt/hdd2T/AICR/Datasets/So_ho_khau/hinh-anh-tam-tru-la-gi-so-5.jpg"
 # img_path = "/mnt/ssd1T/datnt/tableUnderstanding/data_invoice/totaljpg/04.in_0454_001.jpg"
-img_path = "/home/sds/namnt/FWD/data/test14_shk/images/Scanning_HK05.PNG"
+img_path = "/mnt/ssd1T/hungbnt/AnyKeyValue/data/SBT/good_images/tbm_invoice_clear_table_structure.jpg"
 
 engine = OcrEngine(device="cuda:1")
 # https://stackoverflow.com/questions/66435480/overload-following-optional-argument

@@ -98,15 +98,15 @@ def process_dir(
             process_dir(img_path, str(save_dir_sub), engine, ddata)
         elif img_path.suffix.lower() in ImageReader.supported_ext:
             simg_path = str(img_path)
-            try:
-                img = ImageReader.read(
-                    simg_path) if img_path.suffix != ".pdf" else ImageReader.read(simg_path)[0]
-                save_path = str(Path(save_dir).joinpath(
-                    img_path.stem + ".txt"))
-                process_img(img, save_path, engine, export_img)
-            except Exception as e:
-                print('[ERROR]: ', e, ' at ', simg_path)
-                continue
+            # try:
+            img = ImageReader.read(
+                simg_path) if img_path.suffix != ".pdf" else ImageReader.read(simg_path)[0]
+            save_path = str(Path(save_dir).joinpath(
+                img_path.stem + ".txt"))
+            process_img(img, save_path, engine, export_img)
+            # except Exception as e:
+            #     print('[ERROR]: ', e, ' at ', simg_path)
+            #     continue
             ddata["img_path"].append(simg_path)
             ddata["ocr_path"].append(save_path)
             ddata["label"].append(dir_path.stem)
