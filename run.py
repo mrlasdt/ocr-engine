@@ -28,6 +28,10 @@ def get_args():
                         help="path to input image/directory/csv file")
     parser.add_argument("--save_dir", type=str, required=True,
                         help="path to save directory")
+    parser.add_argument("--include", type=str, nargs="+", default=[],
+                        help="files/folders to include")
+    parser.add_argument("--exclude", type=str, nargs="+", default=[],
+                        help="files/folders to exclude")
     parser.add_argument(
         "--base_dir", type=str, required=False, default=current_dir,
         help="used when --image and --save_dir are relative paths to a base directory, default to current directory")
@@ -83,7 +87,7 @@ def process_img(img: Union[str, np.ndarray], save_dir_or_path: str, engine: OcrE
 
 
 def process_dir(
-        dir_path: str, save_dir: str, engine: OcrEngine, export_img: bool, lskip_dir: List[str] = [],
+        dir_path: str, save_dir: str, engine: OcrEngine, export_img: bool, lexcludes: List[str] = [], lincludes: List[str] = [],
         ddata: dict = {"img_path": list(),
                        "ocr_path": list(),
                        "label": list()}) -> None:
@@ -93,7 +97,9 @@ def process_dir(
     save_dir.mkdir(exist_ok=True)
     for img_path in (pbar := tqdm.tqdm(dir_path.iterdir())):
         pbar.set_description(f"Processing {dir_path}")
-        if img_path.is_dir() and img_path not in lskip_dir:
+        if (lincludes and img_path.name not in lincludes) or (img_path.name in lexcludes):
+            continue #only process desired files/foders
+        if img_path.is_dir():
             save_dir_sub = save_dir.joinpath(img_path.stem)
             process_dir(img_path, str(save_dir_sub), engine, ddata)
         elif img_path.suffix.lower() in ImageReader.supported_ext:
@@ -130,7 +136,7 @@ if __name__ == "__main__":
 
     lskip_dir = []
     if img.is_dir():
-        ddata = process_dir(img, save_dir, engine, opt.export_img)
+        ddata = process_dir(img, save_dir, engine, opt.export_img, opt.exclude, opt.include)
         if opt.export_csv:
             pd.DataFrame.from_dict(ddata).to_csv(
                 Path(save_dir).joinpath(opt.export_csv))
