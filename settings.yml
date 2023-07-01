@@ -1,25 +1,29 @@
-detector: /home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth
-recognizer: satrn-lite-general-pretrain-20230106
-device: cuda:1
-do_extend_bbox: True #extend the bbox to avoid losing accent mark in vietnames, if using ocr for only english, disable it
-margin_bbox: [0, 0.03, 0.02, 0.05] # left, top, right, bottom" # 
-batch_mode: False
-batch_size: 16
-img_size: [] #[1920,1920] #text det default size: 1280x1280 #[] = originla size, TODO: fix the deskew code to resize the image only for detecting the angle, we want to feed the original size image to the text detection pipeline so that the bounding boxes would be mapped back to the original size
-auto_rotate: {
-  auto_rotate: True,
-  rotator_version: /home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth,  
-}
-deskew: {
-  enable: True,
-  text_detector: externals/sdsv_dewarp/config/det.yaml,
-  text_cls: externals/sdsv_dewarp/config/cls.yaml,
-}
+device: &device cpu
+img_size: [1920,1920] #text det default size: 1280x1280 #[] = originla size, TODO: fix the deskew code to resize the image only for detecting the angle, we want to feed the original size image to the text detection pipeline so that the bounding boxes would be mapped back to the original size
+extend_bbox: [0, 0.03, 0.02, 0.05] # left, top, right, bottom
+batch_size: 1 #1 means batch_mode = False
+detector: 
+  version: /home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth
+  auto_rotate: True
+  rotator_version: /home/sds/datnt/mmdetection/logs/textdet-with-rotate-20230317/best_bbox_mAP_epoch_30_lite.pth
+  device: *device
+  
+recognizer: 
+  version: satrn-lite-general-pretrain-20230106
+  max_seq_len_overwrite: 24 #default = 12
+  return_confident: True
+  device: *device
+#extend the bbox to avoid losing accent mark in vietnames, if using ocr for only english, disable it
 
-words_to_lines: {
-  gradient: 0.6,
-  max_x_dist: 20,
-  max_running_y_shift_degree: 10, #10 degrees
-  y_overlap_threshold: 0.5,
+deskew: 
+  enable: True
+  text_detector: externals/sdsv_dewarp/config/det.yaml
+  text_cls: externals/sdsv_dewarp/config/cls.yaml
+  device: *device
+
+words_to_lines: 
+  gradient: 0.6
+  max_x_dist: 20
+  max_running_y_shift_degree: 10 #degrees
+  y_overlap_threshold: 0.5
   word_formation_mode: line
-}

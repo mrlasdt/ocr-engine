@@ -24,12 +24,11 @@ DEFAULT_SETTING_PATH = str(Path(__file__).parents[1]) + "/settings.yml"
 
 
 class OcrEngine:
-    def __init__(self, settings_file: str = DEFAULT_SETTING_PATH, **kwargs: dict):
+    def __init__(self, settings_file: str = DEFAULT_SETTING_PATH, **kwargs):
         """Warper of text detection and text recognition
         :param settings_file: path to default setting file
         :param kwargs: keyword arguments to overwrite the default settings file
         """
-
         with open(settings_file) as f:
             # use safe_load instead load
             self._settings = yaml.safe_load(f)
@@ -37,45 +36,32 @@ class OcrEngine:
             if k not in self._settings:
                 raise ValueError("Invalid setting found in OcrEngine: ", k)
             self._settings[k] = v
-
-        if "cuda" in self._settings["device"]:
-            if not torch.cuda.is_available():
-                print("[WARNING]: CUDA is not available, running with cpu instead")
-                self._settings["device"] = "cpu"
-        self._detector = StandaloneYOLOXRunner(
-            version=self._settings["detector"],
-            device=self._settings["device"],
-            **self._settings["auto_rotate"],
-        )
-
-        self._recognizer = StandaloneSATRNRunner(
-            version=self._settings["recognizer"],
-            return_confident=True,
-            device=self._settings["device"],
-        )
+        self._ensure_device()
+        self._detector = StandaloneYOLOXRunner(**self._settings["detector"])
+        self._recognizer = StandaloneSATRNRunner(**self._settings["recognizer"])
         if self._settings["deskew"]["enable"]:
-            self._deskewer = AlignImage(**{k: v for k, v in self._settings["deskew"].items() if k != 'enable'})
-        self._do_extend_bbox = self._settings["do_extend_bbox"]
-        self._margin_bbox = self._settings["margin_bbox"]
-        self._batch_mode = self._settings["batch_mode"]
-        self._batch_size = self._settings["batch_size"]
-        self._do_deskew = self._settings["deskew"]["enable"]
-
-        self._img_size = self._settings["img_size"]
-        self.__version__ = {
-            "detector": self._settings["detector"],
-            "recognizer": self._settings["recognizer"],
-        }
+            self._deskewer = AlignImage(
+                **{k: v for k, v in self._settings["deskew"].items() if k != "enable"}
+            )
 
     def _disclaimer(self):
-        if self._do_deskew:
+        if self._settings["deskew"]["enable"]:
             print(
                 "[WARNING]: Deskew is enabled. The bounding boxes prediction may not be aligned with the original image. In case of using these predictions for pseudo-label, turn on save_deskewed option and use the saved deskewed images instead for further proceed."
             )
 
+    def _ensure_device(self):
+        if "cuda" in self._settings["device"]:
+            if not torch.cuda.is_available():
+                print("[WARNING]: CUDA is not available, running with cpu instead")
+                self._settings["device"] = "cpu"
+
     @property
     def version(self):
-        return self.__version__
+        return {
+            "detector": self._settings["detector"],
+            "recognizer": self._settings["recognizer"],
+        }
 
     @property
     def settings(self):
@@ -91,6 +77,7 @@ class OcrEngine:
     #     confs = xyxyc[:, 4].tolist()
     #     return xyxy, confs
     # -> Tuple[np.ndarray, List[Box]]:
+
     def preprocess(self, img: np.ndarray) -> tuple[np.ndarray, bool, float]:
         img_ = img.copy()
         if self._settings["img_size"]:
@@ -102,7 +89,7 @@ class OcrEngine:
                 backend="cv2",
             )
         is_blank = False
-        if self._do_deskew:
+        if self._settings["deskew"]["enable"]:
             with Timer("deskew"):
                 img_, is_blank, angle = self._deskewer(img_)
                 return img_, is_blank, angle
@@ -118,7 +105,7 @@ class OcrEngine:
         run text detection and return list of xyxyc if return_confidence is True, otherwise return a list of xyxy
         """
         pred_det = self._detector(img)
-        if self._settings["auto_rotate"]:
+        if self._settings["detector"]["auto_rotate"]:
             img, pred_det = pred_det
         pred_det = pred_det[0]  # only image at a time
         return (
@@ -152,11 +139,8 @@ class OcrEngine:
         mask = list()
         for bbox in bboxes:
             bbox = Box(*bbox) if isinstance(bbox, list) else bbox
-            bbox = (
-                bbox.get_extend_bbox(self._margin_bbox)
-                if self._do_extend_bbox
-                else bbox
-            )
+            bbox = bbox.get_extend_bbox(self._settings["extend_bbox"])
+
             bbox.clamp_by_img_wh(img.shape[1], img.shape[0])
             bbox.to_int()
             if not bbox.is_valid():
@@ -214,7 +198,7 @@ class OcrEngine:
         """
         with Timer("read image"):
             img = ImageReader.read(img)
-        if not self._batch_mode:
+        if self._settings["batch_size"] == 1:
             if isinstance(img, list):
                 if len(img) == 1:
                     img = img[0]  # in case input type is a 1 page pdf
@@ -251,7 +235,7 @@ class OcrEngine:
 
 if __name__ == "__main__":
     img_path = "/mnt/ssd1T/hungbnt/Cello/data/PH/Sea7/Sea_7_1.jpg"
-    engine = OcrEngine(device="cuda:0", return_confidence=True)
+    engine = OcrEngine(device="cuda:0")
     # https://stackoverflow.com/questions/66435480/overload-following-optional-argument
     page = engine(img_path)  # type: ignore
     print(page._word_segments)
